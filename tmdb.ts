@@ -24,16 +24,7 @@ const tmdb = axios.create({
     },
 });
 
-// Add an interceptor to guarantee requests never hit localhost when deployed
-axios.interceptors.request.use(config => {
-    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-        // Force Rewrite if it somehow tries to ping localhost
-        if (config.url?.includes('localhost')) {
-            config.url = config.url.replace(/http:\/\/localhost:\d+/, 'https://swappy-20260220.onrender.com');
-        }
-    }
-    return config;
-});
+// No interceptor is needed here anymore, as the API_BASE_URL handles the environment logic correctly.
 
 export const getImageUrl = (path: string | null) => {
     if (!path) return null;
