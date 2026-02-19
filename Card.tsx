@@ -12,6 +12,9 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ item, mode, onSwipe, swipeDirection }) => {
+  // 防衛的コード：itemがundefinedの場合は何もレンダリングしないかローディングを出す
+  if (!item) return null;
+
   const controls = useAnimation();
   const x = useMotionValue(0);
   const y = useMotionValue(0);

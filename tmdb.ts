@@ -68,7 +68,8 @@ export const getDiscoverMovies = async (page = 1, genres?: string): Promise<TMDb
     }
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Vercel本番環境での環境変数喪失に備え、PRODビルド時はRenderのURLをデフォルトに設定
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://swappy-20260220.onrender.com' : 'http://localhost:3001');
 
 // Top 500 Strategy: Sort by vote_count to get "All-time Popular"
 export const getDiscoverTopRated = async (page = 1): Promise<TMDbMovie[]> => {

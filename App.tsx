@@ -448,13 +448,21 @@ export default function App() {
                   <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-zinc-800 rounded-3xl opacity-40 scale-95 border border-zinc-700 pointer-events-none transition-all duration-300 ${mode === 'random' ? 'hidden' : 'w-[90%] max-w-sm h-[60vh]'}`} />
 
                   {/* Active Card */}
-                  <Card
-                    key={mode === 'select' ? currentQuestion?.id : `movie-${randomMovieIndex}`}
-                    item={mode === 'select' ? currentQuestion : currentRandomMovie}
-                    mode={mode}
-                    onSwipe={handleSwipe}
-                    swipeDirection={direction}
-                  />
+                  {mode === 'random' && randomMovies.length === 0 ? (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md h-[75vh] flex flex-col items-center justify-center text-zinc-500 gap-4 bg-zinc-900/50 rounded-[2rem] border border-zinc-800 backdrop-blur-sm z-20">
+                      <div className="w-8 h-8 border-2 border-zinc-700 border-t-pink-500 rounded-full animate-spin" />
+                      <p className="text-xs font-bold tracking-widest font-mono text-pink-500/80">LOADING MOVIES...</p>
+                      <button onClick={handleFullReset} className="mt-8 px-6 py-2 bg-zinc-800 rounded-full text-xs text-white hover:bg-zinc-700 transition">Cancel</button>
+                    </div>
+                  ) : (
+                    <Card
+                      key={mode === 'select' ? currentQuestion?.id : `movie-${randomMovieIndex}`}
+                      item={mode === 'select' ? currentQuestion : currentRandomMovie}
+                      mode={mode}
+                      onSwipe={handleSwipe}
+                      swipeDirection={direction}
+                    />
+                  )}
                 </div>
               ) : null}
             </AnimatePresence>
