@@ -343,7 +343,7 @@ export default function App() {
   const progressPercentage = Math.round((questionIndex / QUESTIONS.length) * 100);
 
   return (
-    <div className="relative w-full h-screen bg-[#050505] text-white overflow-hidden flex flex-col">
+    <div className="relative w-full h-[100dvh] bg-[#050505] text-white overflow-hidden flex flex-col">
 
       {/* History Modal */}
       <AnimatePresence>

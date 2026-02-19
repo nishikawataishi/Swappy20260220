@@ -91,7 +91,7 @@ export const Card: React.FC<CardProps> = ({ item, mode, onSwipe, swipeDirection 
     <motion.div
       ref={cardRef}
       className={`absolute top-0 left-0 w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing perspective-1000 ${mode === 'random' ? 'p-2' : 'p-4'}`}
-      style={{ x, y, rotate, scale, zIndex: 10 }}
+      style={{ x, y, rotate, scale, zIndex: 10, touchAction: 'none' }}
       drag={swipeDirection === null}
       dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
       onDragStart={() => setDragStart({ x: x.get(), y: y.get() })}
