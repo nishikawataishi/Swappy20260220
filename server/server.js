@@ -55,6 +55,10 @@ app.get('/api/discover/top-rated', async (req, res) => {
                 page: page,
                 include_adult: false,
                 'vote_count.gte': 100
+            },
+            headers: {
+                'Host': 'api.themoviedb.org',
+                'X-Forwarded-Host': 'api.themoviedb.org'
             }
         });
         res.json(response.data);
@@ -77,6 +81,10 @@ app.get('/api/discover/anime', async (req, res) => {
                 include_adult: false,
                 'vote_count.gte': 100,
                 with_genres: '16' // Anime Genre ID
+            },
+            headers: {
+                'Host': 'api.themoviedb.org',
+                'X-Forwarded-Host': 'api.themoviedb.org'
             }
         });
         res.json(response.data);
