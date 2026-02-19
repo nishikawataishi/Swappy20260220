@@ -100,11 +100,17 @@ export default function App() {
     nextAniFetched.add(aniPage);
     setFetchedAniPages(nextAniFetched);
 
-    // Parallel Fetch
-    const [genMovies, aniMovies] = await Promise.all([
+    // Parallel Fetch (Use allSettled to prevent one failure from killing the other)
+    const results = await Promise.allSettled([
       getDiscoverTopRated(genPage),
       getDiscoverAnimeTopRated(aniPage)
     ]);
+
+    const genMovies = results[0].status === 'fulfilled' ? results[0].value : [];
+    const aniMovies = results[1].status === 'fulfilled' ? results[1].value : [];
+
+    if (results[0].status === 'rejected') console.error('Gen Fetch Error:', results[0].reason);
+    if (results[1].status === 'rejected') console.error('Ani Fetch Error:', results[1].reason);
 
     // Filter
     const validGen = genMovies.filter(m => m.overview && m.overview.trim().length > 0);
@@ -139,13 +145,24 @@ export default function App() {
     if (randomMovies.length - randomMovieIndex < 10 && !isCmFetching) {
       setIsCmFetching(true);
 
-      fetchHybridBatch(fetchedGenPages, fetchedAniPages).then(mixedMovies => {
-        setRandomMovies(prev => [...prev, ...mixedMovies]);
-        setIsCmFetching(false);
-        // Note: We do NOT preload all here anymore. Only next 5 in the other effect.
-      }).catch(() => {
-        setIsCmFetching(false);
-      });
+      fetchHybridBatch(fetchedGenPages, fetchedAniPages)
+        .then(mixedMovies => {
+          if (mixedMovies && mixedMovies.length > 0) {
+            setRandomMovies(prev => {
+              // 重複排除（iPhone特有のuseEffectの2回コールなどによるバグ防止）
+              const existingIds = new Set(prev.map(m => m.tmdbId));
+              const uniqueNewMovies = mixedMovies.filter(m => !existingIds.has(m.tmdbId));
+              return [...prev, ...uniqueNewMovies];
+            });
+          }
+        })
+        .catch(err => {
+          console.error('[HYBRID FETCH ERROR]', err);
+          // エラーが起きても無限ロードにならないようロックを開放するのみ
+        })
+        .finally(() => {
+          setIsCmFetching(false);
+        });
     }
 
     // 2. Next 5 Images Preloading (Always ensure immediate next are ready)
@@ -169,12 +186,20 @@ export default function App() {
     // Always initialize random movies to ensure they are ready if user switches mode later
     if (randomMovies.length === 0) {
       if (selectedMode === 'random') {
-        // Initial Hybrid Fetch
-        const mixedMovies = await fetchHybridBatch(new Set(), new Set());
-        setRandomMovies(mixedMovies);
-
-        // Immediate Preload (Only 5)
-        preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
+        setIsCmFetching(true);
+        try {
+          // Initial Hybrid Fetch
+          const mixedMovies = await fetchHybridBatch(new Set(), new Set());
+          if (mixedMovies && mixedMovies.length > 0) {
+            setRandomMovies(mixedMovies);
+            // Immediate Preload (Only 5)
+            preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
+          }
+        } catch (err) {
+          console.error('Initial start error', err);
+        } finally {
+          setIsCmFetching(false);
+        }
       } else {
         // Fallback
       }
@@ -198,11 +223,20 @@ export default function App() {
 
     // Ensure data exists if switching to random for the first time
     if (newMode === 'random' && randomMovies.length === 0) {
-      // Initial Hybrid Fetch
-      const mixedMovies = await fetchHybridBatch(new Set(), new Set());
-      setRandomMovies(mixedMovies);
-      // Immediate Preload
-      preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
+      setIsCmFetching(true);
+      try {
+        // Initial Hybrid Fetch
+        const mixedMovies = await fetchHybridBatch(new Set(), new Set());
+        if (mixedMovies && mixedMovies.length > 0) {
+          setRandomMovies(mixedMovies);
+          // Immediate Preload
+          preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
+        }
+      } catch (err) {
+        console.error('Mode switch fetch error', err);
+      } finally {
+        setIsCmFetching(false);
+      }
     }
 
     setMode(newMode);

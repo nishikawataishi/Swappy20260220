@@ -68,8 +68,24 @@ export const getDiscoverMovies = async (page = 1, genres?: string): Promise<TMDb
     }
 };
 
-// Vercel本番環境での環境変数喪失に備え、PRODビルド時はRenderのURLをデフォルトに設定
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://swappy-20260220.onrender.com' : 'http://localhost:3001');
+// ======= CRITICAL FIX FOR MOBILE SAFARI =======
+// 1. Vite environment variables sometimes drop during auto-deploy
+// 2. Fallbacks to `http://localhost` on an `https://` site cause fatal "Mixed Content" errors.
+// By strictly setting Render URL when in PROD, we avoid iOS Safari killing the request outright.
+const getApiBaseUrl = () => {
+    // If we have an explicit ENV var, use it
+    if (import.meta.env.VITE_API_BASE_URL) {
+        return import.meta.env.VITE_API_BASE_URL;
+    }
+    // If we are in production (Vercel), NEVER fallback to localhost
+    if (import.meta.env.PROD) {
+        return 'https://swappy-20260220.onrender.com';
+    }
+    // Otherwise it's local dev
+    return 'http://localhost:3001';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Top 500 Strategy: Sort by vote_count to get "All-time Popular"
 export const getDiscoverTopRated = async (page = 1): Promise<TMDbMovie[]> => {
@@ -81,7 +97,10 @@ export const getDiscoverTopRated = async (page = 1): Promise<TMDbMovie[]> => {
                 // API Key is now handled by the backend
             },
         });
-        return response.data.results;
+        if (response.data && Array.isArray(response.data.results)) {
+            return response.data.results;
+        }
+        return [];
     } catch (error) {
         console.error('Backend Top Rated Error:', error);
         return [];
@@ -98,7 +117,10 @@ export const getDiscoverAnimeTopRated = async (page = 1): Promise<TMDbMovie[]> =
                 // API Key is now handled by the backend
             },
         });
-        return response.data.results;
+        if (response.data && Array.isArray(response.data.results)) {
+            return response.data.results;
+        }
+        return [];
     } catch (error) {
         console.error('Backend Anime Top Rated Error:', error);
         return [];
