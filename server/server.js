@@ -1,12 +1,28 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-require('dotenv').config({ path: '../.env' }); // Load from root .env
+require('dotenv').config(); // Renderでのデプロイを考慮し、デフォルトの挙動に変更
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// 許可するフロントエンドのURL（ローカル開発とVercel本番環境）
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://swappy-react3.vercel.app'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // ブラウザ以外（Postmanなど）からのリクエスト(originなし)か、
+        // 許可リストに含まれるオリジンからのリクエストのみ許可します
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('CORSポリシーによりアクセスがブロックされました'));
+        }
+    }
+}));
 app.use(express.json());
 
 const TMDB_API_KEY = process.env.VITE_TMDB_API_KEY;
