@@ -15,12 +15,24 @@ export interface TMDbMovie {
     vote_average: number;
 }
 
+// Replace missing VITE_TMDB_API_KEY if needed for direct fallback requests (though backend should handle it)
 const tmdb = axios.create({
     baseURL: BASE_URL,
     params: {
-        api_key: API_KEY,
+        api_key: import.meta.env.VITE_TMDB_API_KEY || '77afaa6af4c92e64058b0dc2528cd3c4',
         language: 'ja-JP', // Japanese results
     },
+});
+
+// Add an interceptor to guarantee requests never hit localhost when deployed
+axios.interceptors.request.use(config => {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+        // Force Rewrite if it somehow tries to ping localhost
+        if (config.url?.includes('localhost')) {
+            config.url = config.url.replace(/http:\/\/localhost:\d+/, 'https://swappy-20260220.onrender.com');
+        }
+    }
+    return config;
 });
 
 export const getImageUrl = (path: string | null) => {
@@ -69,18 +81,14 @@ export const getDiscoverMovies = async (page = 1, genres?: string): Promise<TMDb
 };
 
 // ======= CRITICAL FIX FOR MOBILE SAFARI =======
-// 1. Vite environment variables sometimes drop during auto-deploy
-// 2. Fallbacks to `http://localhost` on an `https://` site cause fatal "Mixed Content" errors.
-// By strictly setting Render URL when in PROD, we avoid iOS Safari killing the request outright.
+// In Vite/Vercel, `import.meta.env` can be unreliable if variables are not passed during build correctly.
+// To guarantee the app never falls back to localhost in production, we check the actual window location.
 const getApiBaseUrl = () => {
-    // If we have an explicit ENV var, use it
-    if (import.meta.env.VITE_API_BASE_URL) {
-        return import.meta.env.VITE_API_BASE_URL;
-    }
-    // If we are in production (Vercel), NEVER fallback to localhost
-    if (import.meta.env.PROD) {
+    // If we're deployed on Vercel or any public domain (not localhost)
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
         return 'https://swappy-20260220.onrender.com';
     }
+
     // Otherwise it's local dev
     return 'http://localhost:3001';
 };
