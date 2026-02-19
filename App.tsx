@@ -45,6 +45,7 @@ export default function App() {
   const [fetchedGenPages, setFetchedGenPages] = useState<Set<number>>(new Set());
   const [fetchedAniPages, setFetchedAniPages] = useState<Set<number>>(new Set());
   const [isCmFetching, setIsCmFetching] = useState(false); // Lock for fetch
+  const [retryCount, setRetryCount] = useState(0); // For Render backend cold start retries
 
   const [direction, setDirection] = useState<SwipeDirection | null>(null);
 
@@ -139,10 +140,11 @@ export default function App() {
 
   // --- PRELOAD & BUFFERING LOGIC ---
   useEffect(() => {
-    if (mode !== 'random' || randomMovies.length === 0) return;
+    if (mode !== 'random') return;
 
-    // 1. Background Buffering (Threshold: 10 items remaining)
-    if (randomMovies.length - randomMovieIndex < 10 && !isCmFetching) {
+    // Retry Logic for cold starts (when randomMovies is 0)
+    // Or Background Buffering (Threshold: 10 items remaining)
+    if ((randomMovies.length === 0 || randomMovies.length - randomMovieIndex < 10) && !isCmFetching) {
       setIsCmFetching(true);
 
       fetchHybridBatch(fetchedGenPages, fetchedAniPages)
@@ -154,16 +156,31 @@ export default function App() {
               const uniqueNewMovies = mixedMovies.filter(m => !existingIds.has(m.tmdbId));
               return [...prev, ...uniqueNewMovies];
             });
+            // Reset retry count on success
+            setRetryCount(0);
+          } else if (randomMovies.length === 0) {
+            // Failed to get movies and we have 0 movies (likely Render is sleeping or timeout)
+            // Retry after 3 seconds
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+            }, 3000);
           }
         })
         .catch(err => {
           console.error('[HYBRID FETCH ERROR]', err);
-          // エラーが起きても無限ロードにならないようロックを開放するのみ
+          if (randomMovies.length === 0) {
+            // Retry on error as well
+            setTimeout(() => {
+              setRetryCount(prev => prev + 1);
+            }, 3000);
+          }
         })
         .finally(() => {
           setIsCmFetching(false);
         });
     }
+
+    if (randomMovies.length === 0) return;
 
     // 2. Next 5 Images Preloading (Always ensure immediate next are ready)
     const urlsToPreload: string[] = [];
@@ -183,26 +200,10 @@ export default function App() {
     await audioManager.resume();
     setMode(selectedMode);
 
-    // Always initialize random movies to ensure they are ready if user switches mode later
-    if (randomMovies.length === 0) {
-      if (selectedMode === 'random') {
-        setIsCmFetching(true);
-        try {
-          // Initial Hybrid Fetch
-          const mixedMovies = await fetchHybridBatch(new Set(), new Set());
-          if (mixedMovies && mixedMovies.length > 0) {
-            setRandomMovies(mixedMovies);
-            // Immediate Preload (Only 5)
-            preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
-          }
-        } catch (err) {
-          console.error('Initial start error', err);
-        } finally {
-          setIsCmFetching(false);
-        }
-      } else {
-        // Fallback
-      }
+    // Initialize random movies without blocking the UI transition
+    if (selectedMode === 'random' && randomMovies.length === 0 && !isCmFetching) {
+      // The useEffect will handle the fetching now based on mode, but we can reset state if needed
+      setRetryCount(1); // Trigger the effect to fetch
     }
 
     if (selectedMode === 'random') {
@@ -213,6 +214,7 @@ export default function App() {
       setSelectResult(null);
     }
 
+    // Transition immediately
     setGameState('intro');
   };
 
@@ -222,21 +224,9 @@ export default function App() {
     audioManager.playSkip(); // Click feedback
 
     // Ensure data exists if switching to random for the first time
-    if (newMode === 'random' && randomMovies.length === 0) {
-      setIsCmFetching(true);
-      try {
-        // Initial Hybrid Fetch
-        const mixedMovies = await fetchHybridBatch(new Set(), new Set());
-        if (mixedMovies && mixedMovies.length > 0) {
-          setRandomMovies(mixedMovies);
-          // Immediate Preload
-          preloadImages(mixedMovies.slice(0, 5).map(m => m.image));
-        }
-      } catch (err) {
-        console.error('Mode switch fetch error', err);
-      } finally {
-        setIsCmFetching(false);
-      }
+    if (newMode === 'random' && randomMovies.length === 0 && !isCmFetching) {
+      // The useEffect will catch this and start fetching automatically
+      setRetryCount(prev => prev + 1);
     }
 
     setMode(newMode);
@@ -487,7 +477,8 @@ export default function App() {
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md h-[75vh] flex flex-col items-center justify-center text-zinc-500 gap-4 bg-zinc-900/50 rounded-[2rem] border border-zinc-800 backdrop-blur-sm z-20">
                       <div className="w-8 h-8 border-2 border-zinc-700 border-t-pink-500 rounded-full animate-spin" />
                       <p className="text-xs font-bold tracking-widest font-mono text-pink-500/80">LOADING MOVIES...</p>
-                      <button onClick={handleFullReset} className="mt-8 px-6 py-2 bg-zinc-800 rounded-full text-xs text-white hover:bg-zinc-700 transition">Cancel</button>
+                      <p className="text-[10px] w-3/4 text-center mt-2">サーバー起動中...最大50秒かかる場合があります。<br />(試行回数: {retryCount})</p>
+                      <button onClick={handleFullReset} className="mt-8 px-6 py-2 bg-zinc-800 rounded-full text-xs text-white hover:bg-zinc-700 transition relative z-30 pointer-events-auto">Cancel</button>
                     </div>
                   ) : (
                     <Card

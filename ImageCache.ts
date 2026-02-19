@@ -30,37 +30,37 @@ class ImageCacheService {
   async getUrl(title: string): Promise<string | null> {
     // Return immediately if cached
     if (this.cache.has(title)) return this.cache.get(title)!;
-    
+
     // If fallback mode or already pending, stop.
     if (this.isFallbackMode) return null;
-    if (this.pending.has(title)) return null; 
+    if (this.pending.has(title)) return null;
 
     this.pending.add(title);
-    
+
     try {
       const query = encodeURIComponent(title);
       const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${query}&language=ja-JP`);
-      
+
       if (res.status === 429) {
-         console.warn("[ImageCache] Rate limit exceeded. Switching to fallback mode.");
-         this.isFallbackMode = true;
-         throw new Error("Rate limit");
+        console.warn("[ImageCache] Rate limit exceeded. Switching to fallback mode.");
+        this.isFallbackMode = true;
+        throw new Error("Rate limit");
       }
 
       if (res.ok) {
         const data = await res.json();
         // Prefer Japanese poster
         const path = data.results?.[0]?.poster_path;
-        
+
         if (path) {
           // Use w780 for high quality cards
           const url = `https://image.tmdb.org/t/p/w780${path}`;
-          
+
           // CRITICAL: Preload the image object to ensure browser disk cache
           await new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve(true);
-            img.onerror = () => resolve(false); 
+            img.onerror = () => resolve(false);
             img.src = url;
           });
 
@@ -76,7 +76,7 @@ class ImageCacheService {
         console.warn(`[ImageCache] Failed to load: ${title}`, e);
       }
     }
-    
+
     this.pending.delete(title);
     this.notify(title, null); // Return null so UI uses fallback
     return null;
@@ -88,7 +88,7 @@ class ImageCacheService {
       this.listeners.set(title, []);
     }
     this.listeners.get(title)!.push(callback);
-    
+
     // If we already have it, trigger immediately
     if (this.cache.has(title)) {
       callback(this.cache.get(title)!);
@@ -115,7 +115,7 @@ class ImageCacheService {
   // Method to preload a list of titles (e.g., next 5 movies)
   preload(titles: string[]) {
     if (this.isFallbackMode) return;
-    
+
     titles.forEach(t => {
       if (!this.cache.has(t) && !this.pending.has(t)) {
         this.getUrl(t);
@@ -133,8 +133,10 @@ export const useTMDbImage = (title: string | undefined) => {
 
   useEffect(() => {
     if (!title) {
-        setLoading(false);
-        return;
+      setLoading(false);
+      // Fallback or empty URL if title is missing
+      setUrl(null);
+      return;
     }
 
     // Check again in case it was loaded while component mounted
@@ -146,7 +148,7 @@ export const useTMDbImage = (title: string | undefined) => {
     }
 
     setLoading(true);
-    
+
     const handler = (newUrl: string | null) => {
       setUrl(newUrl);
       setLoading(false);
