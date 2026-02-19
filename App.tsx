@@ -407,6 +407,7 @@ export default function App() {
             <div className="flex items-center gap-2 justify-start pointer-events-auto cursor-pointer group" onClick={handleFullReset}>
               <Film className="text-cyan-400 group-hover:text-cyan-300 transition-colors" size={24} />
               <span className="font-bold text-xl tracking-tighter hidden md:inline group-hover:text-cyan-300 transition-colors">swappy</span>
+              <span className="text-[8px] text-zinc-600 font-mono ml-1 mt-2">v1.1</span>
             </div>
 
             {/* Center: Mode Toggle & Progress */}
